@@ -42,7 +42,12 @@ func TestMain(m *testing.M) {
 	<-textileClient.WaitForReady()
 
 	// run
-	os.Exit(m.Run())
+	exitCode := m.Run()
+
+	if err = textileClient.Shutdown(); err != nil {
+	}
+
+	os.Exit(exitCode)
 }
 
 func TestAddAndRetreiveFile(t *testing.T) {

@@ -2,8 +2,14 @@ package integration_tests
 
 import (
 	"context"
+	"fmt"
+	"io/ioutil"
+	"math/rand"
+	"os"
 	"runtime"
 	"testing"
+
+	"github.com/FleekHQ/space-daemon/grpc/pb"
 
 	"github.com/stretchr/testify/assert"
 
@@ -37,4 +43,64 @@ func XTestAppDoesNotLeakGoroutines(t *testing.T) {
 	assert.Nil(t, err, "app.Shutdown() Failed")
 
 	assert.Equal(t, goRoutinesBefore, runtime.NumGoroutine(), "Goroutine leaked on app Shutdown")
+}
+
+func helpCreateRandomBucket(t *testing.T, apiClient pb.SpaceApiClient) (string, *pb.CreateBucketResponse) {
+	ctx, cancelCtx := context.WithCancel(context.Background())
+	defer cancelCtx()
+	bucketName := fmt.Sprintf("TestBucket-%d", rand.Intn(5000))
+	bucketResponse, err := apiClient.CreateBucket(ctx, &pb.CreateBucketRequest{
+		Slug: bucketName,
+	})
+
+	assert.NoError(t, err, "Error creating bucket:"+bucketName)
+	assert.Equal(t, bucketResponse.Bucket.Name, bucketName)
+
+	return bucketName, bucketResponse
+}
+
+func TestGRPCUploadAndDownload(t *testing.T) {
+	t.SkipNow()
+	app := NewAppFixture()
+	app.StartApp(t)
+	apiClient := app.SpaceApiClient(t)
+	testFilename := "file1"
+	targetPath := ""
+	bucketName, _ := helpCreateRandomBucket(t, apiClient)
+	ctx, cancelCtx := context.WithCancel(context.Background())
+	t.Cleanup(cancelCtx)
+
+	// upload test_files/file1
+	currentPath, err := os.Getwd()
+	assert.NoError(t, err, "os.Getwd() failed")
+	testFilePath := fmt.Sprintf("%s/test_files/%s", currentPath, testFilename)
+	_, err = apiClient.AddItems(ctx, &pb.AddItemsRequest{
+		SourcePaths: []string{testFilePath},
+		TargetPath:  targetPath,
+		Bucket:      bucketName,
+	})
+	assert.NoError(t, err, "Error adding files to bucket")
+
+	// fetch uploaded file1
+	openResult, err := apiClient.OpenFile(ctx, &pb.OpenFileRequest{
+		Path:   fmt.Sprintf("%s%s", targetPath, testFilename),
+		Bucket: bucketName,
+	})
+	assert.NoError(t, err, "Error opening file", testFilename)
+	fileContent, err := ioutil.ReadFile(openResult.Location)
+	assert.NoError(t, err, "Error reading opened file content")
+
+	assert.Equal(t, "test data", string(fileContent))
+}
+
+func TestCreateFolderAndListDirectoryWorks(t *testing.T) {
+	t.SkipNow()
+	app := NewAppFixture()
+	app.StartApp(t)
+	apiClient := app.SpaceApiClient(t)
+	//ctx, cancelCtx := context.WithCancel(context.Background())
+	//t.Cleanup(cancelCtx)
+	helpCreateRandomBucket(t, apiClient)
+
+	//apiClient.ListDirectories(ctx, pb.ListBucketsRequest{})
 }

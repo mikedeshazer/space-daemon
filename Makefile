@@ -18,7 +18,7 @@ test:
 	go test $$(go list ./... | grep -v integration_tests)
 
 integration_test:
-	go test -v ./integration_tests/...
+	go test -v -p 1 ./integration_tests/...
 
 proto_gen:
 	protoc -I grpc/pb/ -I grpc/proto/ -I./devtools/googleapis grpc/proto/space.proto --go_out=plugins=grpc:grpc/pb
