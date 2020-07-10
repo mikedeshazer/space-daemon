@@ -48,7 +48,7 @@ func XTestAppDoesNotLeakGoroutines(t *testing.T) {
 func helpCreateRandomBucket(t *testing.T, apiClient pb.SpaceApiClient) (string, *pb.CreateBucketResponse) {
 	ctx, cancelCtx := context.WithCancel(context.Background())
 	defer cancelCtx()
-	bucketName := fmt.Sprintf("TestBucket-%d", rand.Intn(5000))
+	bucketName := fmt.Sprintf("TestBucket-%d", rand.Intn(500000))
 	bucketResponse, err := apiClient.CreateBucket(ctx, &pb.CreateBucketRequest{
 		Slug: bucketName,
 	})
@@ -94,13 +94,29 @@ func TestGRPCUploadAndDownload(t *testing.T) {
 }
 
 func TestCreateFolderAndListDirectoryWorks(t *testing.T) {
-	t.SkipNow()
 	app := NewAppFixture()
 	app.StartApp(t)
 	apiClient := app.SpaceApiClient(t)
-	//ctx, cancelCtx := context.WithCancel(context.Background())
-	//t.Cleanup(cancelCtx)
-	helpCreateRandomBucket(t, apiClient)
+	bucketName, _ := helpCreateRandomBucket(t, apiClient)
+	folderPath := "/baseFolder"
+	ctx, cancelCtx := context.WithCancel(context.Background())
+	t.Cleanup(cancelCtx)
 
-	//apiClient.ListDirectories(ctx, pb.ListBucketsRequest{})
+	// create a folder in base directory
+	_, err := apiClient.CreateFolder(ctx, &pb.CreateFolderRequest{
+		Path:   folderPath,
+		Bucket: bucketName,
+	})
+	assert.NoError(t, err, "Error creating folder: %s", folderPath)
+
+	// fetch all items in base directory
+	listDirRes, err := apiClient.ListDirectory(ctx, &pb.ListDirectoryRequest{
+		Path:   "",
+		Bucket: bucketName,
+	})
+	assert.NoError(t, err, "Error listing directory")
+	assert.Len(t, listDirRes.Entries, 1, "Bucket directory should only contain one item")
+	dirItem := listDirRes.Entries[0]
+	assert.Equal(t, folderPath, dirItem.Path, "Created Folder path does not match ListDirectory path")
+	assert.Equal(t, true, dirItem.IsDir, "DirItem.IsDir should be true")
 }
