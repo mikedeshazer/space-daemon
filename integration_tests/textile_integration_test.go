@@ -3,57 +3,23 @@ package integration_tests
 import (
 	"bytes"
 	"context"
-	"flag"
 	"os"
 	"testing"
 
-	"github.com/FleekHQ/space-daemon/config"
-	"github.com/FleekHQ/space-daemon/core/env"
 	"github.com/FleekHQ/space-daemon/core/store"
 	"github.com/FleekHQ/space-daemon/core/textile"
 	"github.com/stretchr/testify/assert"
 )
 
 var (
-	devMode        = flag.Bool("dev", true, "defaulting to true for testing")
-	ipfsaddr       string
-	mongousr       string
-	mongopw        string
-	mongohost      string
-	mongorepset    string
-	spaceapi       string
-	spacehubauth   string
-	textilehub     string
-	textilehubma   string
-	textilethreads string
-	textileClient  textile.Client
-	ctx            context.Context
+	textileClient textile.Client
+	ctx           context.Context
 )
 
 func TestMain(m *testing.M) {
-	if os.Getenv("INT_TESTS") != "true" {
-		return
-	}
-
 	ctx = context.Background()
 
-	// setup
-	cf := &config.Flags{
-		Ipfsaddr:             ipfsaddr,
-		Mongousr:             mongousr,
-		Mongopw:              mongopw,
-		Mongohost:            mongohost,
-		Mongorepset:          mongorepset,
-		ServicesAPIURL:       spaceapi,
-		ServicesHubAuthURL:   spacehubauth,
-		DevMode:              *devMode == true,
-		TextileHubTarget:     textilehub,
-		TextileHubMa:         textilehubma,
-		TextileThreadsTarget: textilethreads,
-	}
-
-	env := env.New()
-	cfg := config.NewMap(env, cf)
+	_, cfg, _ := GetTestConfig()
 	st := store.New(
 		store.WithPath("/tmp"),
 	)
